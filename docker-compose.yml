@@ -1,0 +1,19 @@
+version: "3.8"
+
+services:
+    auth:
+        build: .
+        container_name: 'auth-container'
+        ports:
+            - '8080:8080'
+        depends_on: 
+            - db
+    
+    db:
+        image: mongo
+        container_name: 'mongo-container'
+        ports: 
+            - '27017:27017'
+        volumes: 
+            - ./data/db:/data/db
+        restart: always
