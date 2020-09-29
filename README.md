@@ -16,3 +16,7 @@ $ docker-compose up --build
 ```
 
 ### API
+```
+generate tokens (url query key needed)
+/api/auth/getTokens
+```
