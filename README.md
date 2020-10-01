@@ -19,4 +19,7 @@ $ docker-compose up --build
 ```
 generate tokens (url query key needed)
 /api/auth/getTokens
+
+remove refresh token from db(remove only refreshToken field not whole document) 
+/api/auth/deleteRefreshToken
 ```
