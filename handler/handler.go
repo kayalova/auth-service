@@ -19,42 +19,79 @@ func GenerateTokens(c *gin.Context) {
 		return
 	}
 
-	access, err := utils.GenerateAccessToken(guid)
+	tokens, err := utils.GenerateTokens(guid)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Can't generate tokens"})
 		return
 	}
 
-	refresh := utils.GenerateRefreshToken(guid)
-	refreshBase64 := utils.EncodeToBase64(refresh)
-	refreshBcrypted, err := utils.EncodeToBcryptHash(fmt.Sprint(refresh))
+	tokenPair := model.TokenPair{
+		AccessToken:  tokens["access"].(string),
+		RefreshToken: tokens["refreshClient"].(string),
+	}
 
+	err = saveToken(guid, tokens["refreshHash"].([]byte)) //check
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Can't generate tokens"})
 		return
 	}
 
-	err = saveToken(guid, refreshBcrypted)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "Can't generate tokens"})
-		return
-	}
-
-	tokens := model.TokenPair{
-		AccessToken:  access,
-		RefreshToken: refreshBase64,
-	}
-
-	c.JSON(http.StatusOK, gin.H{"tokens": tokens})
+	c.JSON(http.StatusOK, gin.H{"tokens": tokenPair})
 	return
 }
 
-// RefreshTokens ...
-func RefreshTokens(c *gin.Context) {
+// UpdateTokens  generates new tokens' pair for client
+func UpdateTokens(c *gin.Context) {
+	guid, _ := c.GetQuery("guid")
+	refreshClient, _ := c.GetQuery("refreshToken")
+	if !utils.IsValidToken(guid) {
+		c.JSON(http.StatusLengthRequired, gin.H{"message": "Inavalid token's length"})
+		return
+	}
+
+	// проверяем существует ли документ с таким ид
+	isExists := isDocumentExists(guid)
+	if !isExists {
+		c.JSON(http.StatusOK, gin.H{"message": "No user with such guid"})
+		return
+	}
+
+	// проверяем совпадают ли рефреш токен клиента с тем, что в базе
+	refreshDB := getDocument(guid).RefreshToken
+	err := utils.CompareHashAndToken(refreshDB, refreshClient)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"message": "User with such guid has different refresh token"})
+		return
+	}
+
+	// генерируем токены
+	tokens, err := utils.GenerateTokens(guid)
+	tokenPair := model.TokenPair{
+		AccessToken:  tokens["access"].(string),
+		RefreshToken: tokens["refreshClient"].(string),
+	}
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Can't generate tokens"})
+		return
+	}
+
+	r := tokens["refreshHash"]
+	b := r.([]byte)
+	// ui := r.(uint)
+	err = saveToken(guid, b) //check
+	if err != nil {
+		fmt.Println("I am here")
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Can't generate tokens"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"tokens": tokenPair})
+	return
 
 }
 
-// DeleteRefreshToken ...
+// DeleteRefreshToken deletes resfresh token from db
 func DeleteRefreshToken(c *gin.Context) {
 	guid, _ := c.GetQuery("guid")
 	if !utils.IsValidToken(guid) {
@@ -95,4 +132,9 @@ func saveToken(guid string, token []byte) error {
 	err := db.Save(guid, token)
 
 	return err
+}
+
+func getDocument(guid string) model.Document {
+	db := model.NewDB(settings.OpenDBConnection())
+	return db.FindOne(guid)
 }

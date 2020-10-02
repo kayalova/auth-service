@@ -11,7 +11,7 @@ func InitRoutes() *gin.Engine {
 
 	g := router.Group("/api/auth")
 	g.GET("/getTokens", handler.GenerateTokens)
-	g.PUT("/updateTokens", handler.RefreshTokens)
+	g.PUT("/updateTokens", handler.UpdateTokens)
 	g.DELETE("/deleteRefreshToken", handler.DeleteRefreshToken)
 
 	return router

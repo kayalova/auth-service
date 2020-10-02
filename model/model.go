@@ -26,6 +26,13 @@ func NewDB(client *mongo.Client) *DB {
 
 func (db *DB) Save(guid string, token []byte) error {
 	collection := db.Database("auth").Collection("users")
+
+	if db.IsExists(guid) {
+		filter := bson.D{{"guid", guid}}
+		update := bson.D{{"$set", bson.D{{"refreshToken", token}}}}
+		_, err := collection.UpdateOne(context.Background(), filter, update)
+		return err
+	}
 	dbDoc := Document{guid, token} // check
 	_, err := collection.InsertOne(context.Background(), dbDoc)
 	return err
